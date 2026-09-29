@@ -1,0 +1,1 @@
+Media generation service source tree placeholder. Implementation is being bootstrapped here.
