@@ -10,18 +10,15 @@ SECRET_NAME="media-generation-secrets"
 : "${MEDIA_STORAGE_BUCKET:?MEDIA_STORAGE_BUCKET is required}"
 
 command -v sudo >/dev/null
-test -x /usr/local/sbin/platform-kubectl
+test -x /usr/local/sbin/media-kubectl
+
+sudo /usr/local/sbin/media-kubectl ensure-namespace
 
 printf '%s\n' \
   "GEMINI_API_KEY=${GEMINI_API_KEY}" \
   "SUPABASE_URL=${SUPABASE_URL}" \
   "SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}" \
   "MEDIA_STORAGE_BUCKET=${MEDIA_STORAGE_BUCKET}" |
-  sudo /usr/local/sbin/platform-kubectl create secret generic "${SECRET_NAME}" \
-    -n "${NAMESPACE}" \
-    --from-env-file=/dev/stdin \
-    --dry-run=client \
-    -o yaml |
-  sudo /usr/local/sbin/platform-kubectl apply -f -
+  sudo /usr/local/sbin/media-kubectl sync-secret
 
 echo "Synchronized Kubernetes secret ${NAMESPACE}/${SECRET_NAME}."
