@@ -1,4 +1,7 @@
-FROM node:22-alpine AS build
+FROM --platform=$BUILDPLATFORM node:22-alpine AS build
+ARG TARGETPLATFORM
+ARG BUILDPLATFORM
+RUN echo "Building media backend for ${TARGETPLATFORM} on ${BUILDPLATFORM}"
 WORKDIR /app
 COPY package*.json ./
 RUN npm install
