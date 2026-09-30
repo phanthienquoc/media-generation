@@ -33,7 +33,7 @@ jobs:
   runtime-secret:
     needs: verify
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-    runs-on: [self-hosted, linux, arm64, platform-infra, k3s, vps]
+    runs-on: [self-hosted, linux, arm64, media-generation, k3s, vps]
     environment: production
     permissions:
       contents: read
