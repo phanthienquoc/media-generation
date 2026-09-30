@@ -1,3 +1,36 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#f7f7f7"><title>Media · mrcute.space</title><link rel="stylesheet" href="/styles.css"></head>
-<body><div id="app"><div class="boot">Loading media console…</div></div><script src="/app.js" defer></script></body></html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#f7f7f7">
+<title>Media · mrcute.space</title>
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<div id="app"><div class="boot">Loading media console…</div></div>
+<script>
+(function () {
+  var app = document.getElementById("app");
+  var done = false;
+  function showError(message) {
+    if (done) return;
+    app.innerHTML = '<div class="boot error">' + message + '<br><button onclick="location.reload()">Reload</button></div>';
+  }
+  var script = document.createElement("script");
+  script.src = "/app.js?v=20260930";
+  script.async = false;
+  script.onload = function () { done = true; };
+  script.onerror = function () {
+    showError("Could not load the media console.");
+  };
+  document.head.appendChild(script);
+  setTimeout(function () {
+    if (!done && app.textContent.indexOf("Loading media console") !== -1) {
+      showError("Media console script is not responding.");
+    }
+  }, 8000);
+}());
+</script>
+</body>
+</html>
