@@ -33,24 +33,11 @@ jobs:
   runtime-secret:
     needs: verify
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-    runs-on: [self-hosted, linux, arm64, platform-infra, k3s, vps]
-    environment: production
-    permissions:
-      contents: read
-    env:
-      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-      MEDIA_STORAGE_BUCKET: media-generation
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-        with:
-          persist-credentials: false
-      - name: Sync production runtime secret
-        run: |
-          set -euo pipefail
-          chmod +x scripts/sync-production-secret.sh
-          ./scripts/sync-production-secret.sh
+    uses: phanthienquoc/platform-infra/.github/workflows/sync-media-runtime-secret.yml@450f461d8e2d49579471dbcbc904ceb225259e91
+    secrets:
+      gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
+      supabase_url: ${{ secrets.SUPABASE_URL }}
+      supabase_service_role_key: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
   image:
     needs: verify
