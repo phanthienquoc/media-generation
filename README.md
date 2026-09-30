@@ -22,4 +22,4 @@ Configure this GitHub Actions secret in the `media-generation` repository:
 
 - `PLATFORM_INFRA_DISPATCH_TOKEN`: a least-privilege GitHub token authorized to dispatch repository events to `phanthienquoc/platform-infra`.
 
-Production runtime credentials are owned by this repository and supplied to the `production` GitHub environment. The `runtime-secret` job syncs them to `media-prod/media-generation-secrets` on the existing self-hosted K3s runner before GitOps promotion. `platform-infra` owns only the Kubernetes workload/infrastructure and never reads these application credentials.
+Production runtime credentials are owned by this repository as GitHub Actions repository secrets. The `runtime-secret` job passes only these three application credentials to the pinned `platform-infra` reusable workflow, which uses platform-owned VPS access to sync `media-prod/media-generation-secrets` before GitOps promotion. `platform-infra` does not store the application credentials.
