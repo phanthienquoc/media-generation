@@ -1,8 +1,7 @@
 import { Injectable, NestMiddleware } from '@nestjs/common';
-import { Request, Response, NextFunction } from 'express';
 @Injectable()
 export class MediaAdminMiddleware implements NestMiddleware {
-  use(req: Request, res: Response, next: NextFunction) {
+  use(req: any, res: any, next: any) {
     if (req.path === '/v1/health' || req.path === '/v1/ready') return next();
     const user = process.env.MEDIA_ADMIN_USERNAME;
     const pass = process.env.MEDIA_ADMIN_PASSWORD;
