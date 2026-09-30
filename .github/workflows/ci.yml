@@ -68,13 +68,18 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
       - run: |
           set -euo pipefail
           IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}"
           TAG="${GITHUB_SHA}"
-          docker build --pull -t "${IMAGE}:${TAG}" -t "${IMAGE}:latest" .
-          docker push "${IMAGE}:${TAG}"
-          docker push "${IMAGE}:latest"
+          docker buildx build \
+            --platform linux/amd64,linux/arm64 \
+            --pull \
+            -t "${IMAGE}:${TAG}" \
+            -t "${IMAGE}:latest" \
+            --push .
 
   promote:
     needs: [image, runtime-secret]
