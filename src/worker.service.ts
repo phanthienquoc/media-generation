@@ -31,6 +31,7 @@ export class WorkerService implements OnModuleInit {
           status: 'PROCESSING',
           attempt_count: attempt,
           started_at: new Date().toISOString(),
+          provider_operation: null,
         });
 
         try {
@@ -47,13 +48,13 @@ export class WorkerService implements OnModuleInit {
 
           const insert = await this.db.client
             .from('video_generation_assets')
-            .insert({
+            .upsert({
               job_id: job.id,
               storage_path: storagePath,
               mime_type: 'video/mp4',
               byte_size: output.bytes.byteLength,
               provider_operation: output.operationName,
-            });
+            }, { onConflict: 'job_id,storage_path' });
 
           if (insert.error) throw new Error(insert.error.message);
 
@@ -61,6 +62,7 @@ export class WorkerService implements OnModuleInit {
             status: 'READY',
             completed_at: new Date().toISOString(),
             error_message: null,
+            provider_operation: output.operationName,
           });
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
