@@ -34,11 +34,28 @@ export class VideoJobsService {
   }
 
   async retry(id: string) {
-    const { data, error } = await this.db.client.rpc('retry_video_generation_job', { job_id: id });
+    const { data, error } = await this.db.client.from('video_generation_jobs')
+      .update({
+        status: 'QUEUED',
+        error_message: null,
+        completed_at: null,
+        started_at: null,
+        provider_operation: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .eq('status', 'FAILED')
+      .select('id')
+      .maybeSingle();
+
     if (error) throw new Error(error.message);
-    const result = data?.[0];
-    if (!result) throw new NotFoundException('Video job not found');
-    if (result.was_retryable !== true) throw new ConflictException('Only FAILED jobs can be retried');
+    if (!data) {
+      const { data: existing, error: lookupError } = await this.db.client
+        .from('video_generation_jobs').select('id,status').eq('id', id).maybeSingle();
+      if (lookupError) throw new Error(lookupError.message);
+      if (!existing) throw new NotFoundException('Video job not found');
+      throw new ConflictException('Only FAILED jobs can be retried');
+    }
     return this.get(id);
   }
 
