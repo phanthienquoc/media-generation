@@ -29,8 +29,29 @@ jobs:
       - run: npm run build
       - run: npm test
 
-  image:
+  runtime-secret:
     needs: verify
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: [self-hosted, linux, arm64, platform-infra, k3s, vps]
+    environment: production
+    permissions:
+      contents: read
+    env:
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      MEDIA_STORAGE_BUCKET: media-generation
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Sync production runtime secret
+        run: |
+          set -euo pipefail
+          chmod +x scripts/sync-production-secret.sh
+          ./scripts/sync-production-secret.sh
+
+  image:    needs: verify
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     permissions:
@@ -53,16 +74,24 @@ jobs:
           docker push "${IMAGE}:${TAG}"
           docker push "${IMAGE}:latest"
 
+  promote:
+    needs: [image, runtime-secret]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
       - name: Dispatch GitOps image promotion
-        env:
-          GH_TOKEN: ${{ secrets.PLATFORM_INFRA_DISPATCH_TOKEN }}
-          PLATFORM_INFRA_REPO: phanthienquoc/platform-infra
-          IMAGE_TAG: ${{ github.sha }}
-        run: |
-          set -euo pipefail
-          test -n "${GH_TOKEN}" || {
-            echo "::error::PLATFORM_INFRA_DISPATCH_TOKEN is required for production image promotion"
-            exit 1
-          }
-          gh api --method POST             -H "Accept: application/vnd.github+json"             "/repos/${PLATFORM_INFRA_REPO}/dispatches"             -f event_type="image-published"             -f client_payload[app]="media-generation"             -f client_payload[component]="app"             -f client_payload[tag]="${IMAGE_TAG}"
-          echo "Dispatched media-generation image promotion for ${IMAGE_TAG}."
+          env:
+            GH_TOKEN: ${{ secrets.PLATFORM_INFRA_DISPATCH_TOKEN }}
+            PLATFORM_INFRA_REPO: phanthienquoc/platform-infra
+            IMAGE_TAG: ${{ github.sha }}
+          run: |
+            set -euo pipefail
+            test -n "${GH_TOKEN}" || {
+              echo "::error::PLATFORM_INFRA_DISPATCH_TOKEN is required for production image promotion"
+              exit 1
+            }
+            gh api --method POST             -H "Accept: application/vnd.github+json"             "/repos/${PLATFORM_INFRA_REPO}/dispatches"             -f event_type="image-published"             -f client_payload[app]="media-generation"             -f client_payload[component]="app"             -f client_payload[tag]="${IMAGE_TAG}"
+            echo "Dispatched media-generation image promotion for ${IMAGE_TAG}."
+  
