@@ -1,3 +1,1 @@
-{
- "compilerOptions":{"module":"commonjs","declaration":true,"removeComments":true,"emitDecoratorMetadata":true,"experimentalDecorators":true,"target":"ES2022","outDir":"./dist","incremental":true,"skipLibCheck":true,"strict":true,"moduleResolution":"node","esModuleInterop":true},"include":["src/**/*"]
-}
+{"compilerOptions":{"module":"commonjs","declaration":true,"removeComments":true,"emitDecoratorMetadata":true,"experimentalDecorators":true,"target":"ES2022","outDir":"./dist","incremental":true,"skipLibCheck":true,"strict":true,"moduleResolution":"node","esModuleInterop":true,"jsx":"preserve","plugins":[{"name":"next"}],"baseUrl":".","paths":{"@/*":["./*"]}},"include":["src/**/*","next-env.d.ts","app/**/*.ts","app/**/*.tsx","components/**/*.ts","components/**/*.tsx","lib/**/*.ts","lib/**/*.tsx",".next/types/**/*.ts"],"exclude":["node_modules"]}
