@@ -10,7 +10,7 @@ API contract: failed jobs can be retried; completed assets are returned through 
 
 ## Production CI/CD
 
-The `master` image job publishes an immutable Git-SHA image to GHCR and dispatches `image-published` to `platform-infra` for GitOps promotion and VPS reconciliation.
+The `master` image job publishes an immutable Git-SHA image to the public GHCR package and dispatches `image-published` to `platform-infra` for GitOps promotion and VPS reconciliation.
 
 Configure this GitHub Actions secret in the `media-generation` repository:
 
