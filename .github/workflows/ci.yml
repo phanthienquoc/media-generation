@@ -82,7 +82,7 @@ jobs:
             --push .
 
   promote:
-    needs: [image, runtime-secret]
+    needs: image
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     permissions:
