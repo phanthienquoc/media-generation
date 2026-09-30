@@ -11,6 +11,7 @@ ENV NODE_ENV=production
 COPY --from=build /app/package*.json ./
 RUN npm install --omit=dev
 COPY --from=build /app/dist ./dist
+COPY public ./public
 USER node
 EXPOSE 3000
 CMD ["node","dist/main.js"]
