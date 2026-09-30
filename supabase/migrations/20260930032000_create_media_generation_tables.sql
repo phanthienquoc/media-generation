@@ -1,0 +1,10 @@
+create table if not exists public.video_generation_jobs (id uuid primary key default gen_random_uuid(), prompt text not null, model text not null default 'veo-3.1-fast-generate-preview', aspect_ratio text not null default '16:9', resolution text not null default '720p', status text not null default 'QUEUED', attempt_count integer not null default 0, max_attempts integer not null default 3, provider_operation text, error_message text, started_at timestamptz, completed_at timestamptz, created_at timestamptz not null default now(), updated_at timestamptz not null default now());
+create table if not exists public.video_generation_assets (id uuid primary key default gen_random_uuid(), job_id uuid not null references public.video_generation_jobs(id) on delete cascade, storage_path text not null, mime_type text not null default 'video/mp4', byte_size bigint, provider_operation text, created_at timestamptz not null default now(), unique(job_id, storage_path));
+create index if not exists video_generation_jobs_status_created_idx on public.video_generation_jobs(status, created_at);
+create index if not exists video_generation_assets_job_id_idx on public.video_generation_assets(job_id);
+create or replace function public.claim_video_generation_job() returns setof public.video_generation_jobs language plpgsql security definer set search_path = public as $$ begin return query with candidate as (select id from public.video_generation_jobs where status = 'QUEUED' and attempt_count < max_attempts order by created_at for update skip locked limit 1) update public.video_generation_jobs j set status = 'SUBMITTED', updated_at = now() from candidate c where j.id = c.id returning j.*; end; $$;
+revoke all on function public.claim_video_generation_job() from public;
+grant execute on function public.claim_video_generation_job() to service_role;
+alter table public.video_generation_jobs enable row level security;
+alter table public.video_generation_assets enable row level security;
+insert into storage.buckets (id, name, public) values ('media-generation', 'media-generation', false) on conflict (id) do update set public = false;
