@@ -28,6 +28,7 @@ jobs:
       - run: npm install
       - run: npm run build
       - run: npm test
+      - run: bash -n scripts/sync-production-secret.sh
 
   runtime-secret:
     needs: verify
