@@ -12,24 +12,20 @@
 <script>
 (function () {
   var app = document.getElementById("app");
-  var done = false;
   function showError(message) {
-    if (done) return;
     app.innerHTML = '<div class="boot error">' + message + '<br><button onclick="location.reload()">Reload</button></div>';
   }
-  var script = document.createElement("script");
-  script.src = "/app.js?v=20260930";
-  script.async = false;
-  script.onload = function () { done = true; };
-  script.onerror = function () {
-    showError("Could not load the media console.");
-  };
-  document.head.appendChild(script);
-  setTimeout(function () {
-    if (!done && app.textContent.indexOf("Loading media console") !== -1) {
-      showError("Media console script is not responding.");
-    }
-  }, 8000);
+  fetch("/app.js?v=202609301930", { cache: "no-store" })
+    .then(function (r) {
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.text();
+    })
+    .then(function (code) {
+      new Function(code)();
+    })
+    .catch(function (err) {
+      showError("Could not start the media console (" + err.message + ").");
+    });
 }());
 </script>
 </body>
