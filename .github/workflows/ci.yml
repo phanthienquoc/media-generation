@@ -52,3 +52,17 @@ jobs:
           docker build --pull -t "${IMAGE}:${TAG}" -t "${IMAGE}:latest" .
           docker push "${IMAGE}:${TAG}"
           docker push "${IMAGE}:latest"
+
+      - name: Dispatch GitOps image promotion
+        env:
+          GH_TOKEN: ${{ secrets.PLATFORM_INFRA_DISPATCH_TOKEN }}
+          PLATFORM_INFRA_REPO: phanthienquoc/platform-infra
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          test -n "${GH_TOKEN}" || {
+            echo "::error::PLATFORM_INFRA_DISPATCH_TOKEN is required for production image promotion"
+            exit 1
+          }
+          gh api --method POST             -H "Accept: application/vnd.github+json"             "/repos/${PLATFORM_INFRA_REPO}/dispatches"             -f event_type="image-published"             -f client_payload[app]="media-generation"             -f client_payload[component]="app"             -f client_payload[tag]="${IMAGE_TAG}"
+          echo "Dispatched media-generation image promotion for ${IMAGE_TAG}."
