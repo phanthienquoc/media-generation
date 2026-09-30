@@ -16,7 +16,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  verify:
+  verify-backend:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -25,13 +25,24 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 22
-      - run: npm install
-      - run: npm run build
-      - run: npm test
-      - run: bash -n scripts/sync-production-secret.sh
+      - run: npm install --prefix apps/backend
+      - run: npm test --prefix apps/backend
+      - run: npm run build --prefix apps/backend
+
+  verify-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+      - run: npm install --prefix apps/frontend
+      - run: npm run build --prefix apps/frontend
 
   runtime-secret:
-    needs: verify
+    needs: [verify-backend, verify-frontend]
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     runs-on: [self-hosted, linux, arm64, media-generation, k3s, vps]
     environment: production
@@ -52,8 +63,8 @@ jobs:
           chmod +x scripts/sync-production-secret.sh
           ./scripts/sync-production-secret.sh
 
-  image:
-    needs: verify
+  backend-image:
+    needs: verify-backend
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     permissions:
@@ -72,23 +83,42 @@ jobs:
       - uses: docker/setup-buildx-action@v3
       - run: |
           set -euo pipefail
-          IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}"
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}-backend"
           TAG="${GITHUB_SHA}"
-          docker buildx build \
-            --platform linux/amd64,linux/arm64 \
-            --pull \
-            -t "${IMAGE}:${TAG}" \
-            -t "${IMAGE}:latest" \
-            --push .
+          docker buildx build             --platform linux/amd64,linux/arm64             --pull             -f apps/backend/Dockerfile             -t "${IMAGE}:${TAG}"             -t "${IMAGE}:latest"             --push apps/backend
 
-  promote:
-    needs: image
+  frontend-image:
+    needs: verify-frontend
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - run: |
+          set -euo pipefail
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}-frontend"
+          TAG="${GITHUB_SHA}"
+          docker buildx build             --platform linux/amd64,linux/arm64             --pull             -f apps/frontend/Dockerfile             -t "${IMAGE}:${TAG}"             -t "${IMAGE}:latest"             --push apps/frontend
+
+  promote-backend:
+    needs: backend-image
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
-      - name: Dispatch GitOps image promotion
+      - name: Dispatch backend GitOps image promotion
         env:
           GH_TOKEN: ${{ secrets.PLATFORM_INFRA_DISPATCH_TOKEN }}
           PLATFORM_INFRA_REPO: phanthienquoc/platform-infra
@@ -99,11 +129,24 @@ jobs:
             echo "::error::PLATFORM_INFRA_DISPATCH_TOKEN is required for production image promotion"
             exit 1
           }
-          gh api --method POST \
-            -H "Accept: application/vnd.github+json" \
-            "/repos/${PLATFORM_INFRA_REPO}/dispatches" \
-            -f event_type="image-published" \
-            -f client_payload[app]="media-generation" \
-            -f client_payload[component]="app" \
-            -f client_payload[tag]="${IMAGE_TAG}"
-          echo "Dispatched media-generation image promotion for ${IMAGE_TAG}."
+          gh api --method POST             -H "Accept: application/vnd.github+json"             "/repos/${PLATFORM_INFRA_REPO}/dispatches"             -f event_type="image-published"             -f client_payload[app]="media-generation"             -f client_payload[component]="backend"             -f client_payload[tag]="${IMAGE_TAG}"
+
+  promote-frontend:
+    needs: frontend-image
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Dispatch frontend GitOps image promotion
+        env:
+          GH_TOKEN: ${{ secrets.PLATFORM_INFRA_DISPATCH_TOKEN }}
+          PLATFORM_INFRA_REPO: phanthienquoc/platform-infra
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          test -n "${GH_TOKEN}" || {
+            echo "::error::PLATFORM_INFRA_DISPATCH_TOKEN is required for production image promotion"
+            exit 1
+          }
+          gh api --method POST             -H "Accept: application/vnd.github+json"             "/repos/${PLATFORM_INFRA_REPO}/dispatches"             -f event_type="image-published"             -f client_payload[app]="media-generation"             -f client_payload[component]="frontend"             -f client_payload[tag]="${IMAGE_TAG}"
