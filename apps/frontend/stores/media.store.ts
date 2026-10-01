@@ -13,6 +13,7 @@ type MediaState = {
   loadJobs: () => Promise<void>;
   loadAssets: () => Promise<void>;
   load: (view: MediaView) => Promise<void>;
+  createJob: (input: Parameters<typeof mediaService.createJob>[0]) => Promise<VideoJob | null>;
   retryJob: (id: string) => Promise<void>;
   clearError: () => void;
 };
@@ -59,6 +60,18 @@ export const useMediaStore = create<MediaState>((set) => ({
       set({ jobs, loading: false });
     } catch (error) {
       set({ loading: false, error: getErrorMessage(error, "Failed to load media") });
+    }
+  },
+
+  createJob: async (input) => {
+    set({ loading: true, error: null });
+    try {
+      const job = await mediaService.createJob(input);
+      set((state) => ({ jobs: [job, ...state.jobs], loading: false }));
+      return job;
+    } catch (error) {
+      set({ loading: false, error: getErrorMessage(error, "Failed to create video job") });
+      return null;
     }
   },
 
