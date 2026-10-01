@@ -4,50 +4,28 @@ import { useEffect, useState } from "react";
 import { Activity, Film, HardDrive, Settings2, Plus, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { api } from "@lib/api";
-
-type Job = {
-  id: string;
-  prompt: string;
-  model: string;
-  aspect_ratio: string;
-  resolution: string;
-  status: string;
-  created_at: string;
-};
-
-type Asset = {
-  storage_path: string;
-  mime_type: string;
-  byte_size?: number;
-  signed_url?: string;
-};
+import { useMediaStore } from "@stores/media.store";
 
 export default function Page() {
-  const [view, setView] = useState("overview");
-  const [jobs, setJobs] = useState<Job[]>([]);
-  const [assets, setAssets] = useState<Asset[]>([]);
-  const [error, setError] = useState("");
-
-  const load = () => {
-    setError("");
-    const request = view === "assets"
-      ? api<Asset[]>("/assets?limit=50").then(setAssets)
-      : api<Job[]>("/video-jobs?limit=50").then(setJobs);
-    request.catch((e) => setError(e.message));
-  };
+  const [view, setView] = useState<"overview" | "jobs" | "assets" | "system">("overview");
+  const { jobs, assets, error, loading, load, clearError } = useMediaStore();
 
   useEffect(() => {
-    load();
-    const timer = setInterval(load, 15000);
+    void load(view);
+    const timer = setInterval(() => void load(view), 15000);
     return () => clearInterval(timer);
-  }, [view]);
+  }, [load, view]);
+
+  const reload = () => {
+    clearError();
+    void load(view);
+  };
 
   const nav = [
     ["overview", "Overview", Activity],
     ["jobs", "Jobs", Film],
     ["assets", "Assets", HardDrive],
-    ["system", "System", Settings2]
+    ["system", "System", Settings2],
   ] as const;
 
   return (
@@ -64,7 +42,9 @@ export default function Page() {
           <Card>
             <CardContent className="flex items-center gap-3 text-sm text-destructive">
               <span className="min-w-0 flex-1 truncate">{error}</span>
-              <Button variant="outline" size="sm" onClick={load}><RefreshCw size={14} /></Button>
+              <Button variant="outline" size="sm" onClick={reload} disabled={loading}>
+                <RefreshCw size={14} />
+              </Button>
             </CardContent>
           </Card>
         )}
