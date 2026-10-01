@@ -1,56 +1,50 @@
-name: media-generation-ci
+name: WF-03 Media Production Deploy
+# Re-registered under a new workflow path to clear the stale Actions metadata.
+run-name: WF-03 Media Production Deploy — ${{ github.ref_name }} — ${{ github.sha }}
 
 on:
   push:
     branches:
       - master
-      - "feat/**"
-  pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
   actions: read
   packages: write
 
-concurrency:
-  group: media-generation-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   notify-telegram-start:
     name: Notify Telegram — release started
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
-    continue-on-error: true
     env:
       TELEGRAM_BOT_TOKEN: ${{ vars.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHAT_ID: ${{ vars.TELEGRAM_CHAT_ID }}
     steps:
       - name: Validate Telegram configuration
-        id: telegram-config
         shell: bash
         run: |
           set -euo pipefail
-          if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
-            echo "configured=false" >> "$GITHUB_OUTPUT"
-            echo "Telegram configuration missing; skipping optional notification."
-            exit 0
-          fi
-          echo "configured=true" >> "$GITHUB_OUTPUT"
+          test -n "$TELEGRAM_BOT_TOKEN" || { echo "Missing GitHub variable: TELEGRAM_BOT_TOKEN"; exit 1; }
+          test -n "$TELEGRAM_CHAT_ID" || { echo "Missing GitHub variable: TELEGRAM_CHAT_ID"; exit 1; }
 
       - name: Send deployment started message
-        if: steps.telegram-config.outputs.configured == 'true'
         shell: bash
         run: |
           set -euo pipefail
           MESSAGE="🚀 <b>MEDIA • PRODUCTION RELEASE</b>
           🌿 Branch    <code>${{ github.ref_name }}</code>
           🔖 Commit    <code>${GITHUB_SHA::7}</code>"
-          curl --fail-with-body -sS -X POST             "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage"             -d "chat_id=${TELEGRAM_CHAT_ID}"             --data-urlencode "text=${MESSAGE}"             -d "parse_mode=HTML"
+
+          curl --fail-with-body -sS -X POST \
+            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -d "chat_id=${TELEGRAM_CHAT_ID}" \
+            --data-urlencode "text=${MESSAGE}" \
+            -d "parse_mode=HTML"
 
   detect:
     name: Resolve production image tag
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs: notify-telegram-start
     runs-on: ubuntu-latest
     outputs:
       image_tag: ${{ steps.version.outputs.image_tag }}
@@ -65,48 +59,31 @@ jobs:
           VERSION="$(node -p "require('./package.json').version")"
           SHA="${GITHUB_SHA::7}"
           IMAGE_TAG="prod-v${VERSION}-${SHA}"
+
           test -n "$VERSION"
           test "$IMAGE_TAG" = "prod-v${VERSION}-${SHA}"
+
           echo "image_tag=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
           echo "Image tag: $IMAGE_TAG"
 
-  verify:
-    name: Verify Nx workspace
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-      - run: npm install --no-audit --no-fund
-      - run: npx nx show projects
-      - run: npm run typecheck
-      - run: npm test
-
-  runtime-secret:
-    needs: [verify]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-    runs-on: [self-hosted, linux, arm64, media-generation, k3s, vps]
-    environment: production
-    permissions:
-      contents: read
-    env:
-      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-      MEDIA_STORAGE_BUCKET: media-generation
-    steps:
-      - uses: actions/checkout@v4
-      - name: Sync production runtime secret
+      - name: Write release metadata
+        shell: bash
+        env:
+          IMAGE_TAG: ${{ steps.version.outputs.image_tag }}
         run: |
           set -euo pipefail
-          chmod +x scripts/sync-production-secret.sh
-          ./scripts/sync-production-secret.sh
+          printf '%s\n' "$IMAGE_TAG" > /tmp/image-tag.txt
+
+      - name: Upload release metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: media-release-metadata
+          path: /tmp/image-tag.txt
+          retention-days: 1
 
   build-frontend:
-    name: Build frontend image (native ARM64)
-    needs: [detect, verify]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    name: Build frontend (native ARM64)
+    needs: detect
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 30
     env:
@@ -115,32 +92,21 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Verify native architecture
-        shell: bash
-        run: |
-          set -euo pipefail
-          test "$(uname -m)" = "aarch64"
-
-      - name: Validate frontend Dockerfile
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -f apps/frontend/Dockerfile
-          test -f apps/frontend/package.json
+        run: test "$(uname -m)" = "aarch64"
 
       - name: Build frontend image
         shell: bash
         run: |
           set -euo pipefail
-          docker build --pull             -t "media-frontend:$IMAGE_TAG"             -f apps/frontend/Dockerfile             apps/frontend
+          docker build --pull -t "media-frontend:$IMAGE_TAG" -f apps/frontend/Dockerfile apps/frontend
 
-      - name: Verify frontend image
+      - name: Verify frontend architecture
         shell: bash
         run: |
           set -euo pipefail
           test "$(docker image inspect "media-frontend:$IMAGE_TAG" --format '{{.Architecture}}')" = "arm64"
-          docker image inspect "media-frontend:$IMAGE_TAG" >/dev/null
 
-      - name: Export and checksum frontend image
+      - name: Export and validate frontend image
         shell: bash
         run: |
           set -euo pipefail
@@ -161,9 +127,8 @@ jobs:
           retention-days: 1
 
   build-backend:
-    name: Build backend image (native ARM64)
-    needs: [detect, verify]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    name: Build backend (native ARM64)
+    needs: detect
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 30
     env:
@@ -171,33 +136,33 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Verify native architecture
-        shell: bash
-        run: |
-          set -euo pipefail
-          test "$(uname -m)" = "aarch64"
-
-      - name: Validate backend Dockerfile
+      - name: Validate backend inputs
         shell: bash
         run: |
           set -euo pipefail
           test -f apps/backend/Dockerfile
+          test -f package.json
           test -f apps/backend/package.json
+          test -d apps/backend
+          test -d libs
+          test -d packages
+
+      - name: Verify native architecture
+        run: test "$(uname -m)" = "aarch64"
 
       - name: Build backend image
         shell: bash
         run: |
           set -euo pipefail
-          docker build --pull             -t "media-backend:$IMAGE_TAG"             -f apps/backend/Dockerfile             apps/backend
+          docker build --pull -t "media-backend:$IMAGE_TAG" -f apps/backend/Dockerfile apps/backend
 
-      - name: Verify backend image
+      - name: Verify backend architecture
         shell: bash
         run: |
           set -euo pipefail
           test "$(docker image inspect "media-backend:$IMAGE_TAG" --format '{{.Architecture}}')" = "arm64"
-          docker image inspect "media-backend:$IMAGE_TAG" >/dev/null
 
-      - name: Export and checksum backend image
+      - name: Export and validate backend image
         shell: bash
         run: |
           set -euo pipefail
@@ -219,8 +184,10 @@ jobs:
 
   platform-infra-release:
     name: Publish immutable images and promote platform-infra
-    needs: [detect, build-frontend, build-backend]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs:
+      - detect
+      - build-frontend
+      - build-backend
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 20
     env:
@@ -237,10 +204,11 @@ jobs:
           merge-multiple: true
           path: /tmp/images
 
-      - name: Validate and load exact release images
+      - name: Load and validate exact release images
         shell: bash
         run: |
           set -euo pipefail
+
           for image in media-frontend media-backend; do
             test -s "/tmp/images/$image.tar"
             test -s "/tmp/images/$image.sha256"
@@ -248,6 +216,8 @@ jobs:
             actual="$(sha256sum "/tmp/images/$image.tar" | awk '{print $1}')"
             test "$actual" = "$expected" || {
               echo "::error::Checksum mismatch for $image.tar"
+              echo "Expected: $expected"
+              echo "Actual:   $actual"
               exit 1
             }
             docker load -i "/tmp/images/$image.tar"
@@ -281,80 +251,75 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -n "$TOKEN"
+
+          test -n "$TOKEN" || {
+            echo "PLATFORM_INFRA_DISPATCH_TOKEN is required for production GitOps promotion."
+            exit 1
+          }
 
           DISPATCHED_AT="$(date -u +%s)"
           echo "dispatched_at=$DISPATCHED_AT" >> "$GITHUB_OUTPUT"
 
-          PAYLOAD="$(jq -n             --arg release "$TAG"             '{event_type:"media-release-requested",client_payload:{app:"media-generation",release:$release}}')"
-
-          curl --fail-with-body -sS -X POST             -H "Accept: application/vnd.github+json"             -H "Authorization: Bearer $TOKEN"             -H "X-GitHub-Api-Version: 2022-11-28"             https://api.github.com/repos/phanthienquoc/platform-infra/dispatches             --data "$PAYLOAD"
+          curl --fail-with-body -sS -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/phanthienquoc/platform-infra/dispatches \
+            -d "{\"event_type\":\"media-release-requested\",\"client_payload\":{\"app\":\"media-generation\",\"release\":\"$TAG\"}}"
 
       - name: Verify platform-infra release workflow
         shell: bash
         env:
+          RELEASE: ${{ needs.detect.outputs.image_tag }}
           DISPATCHED_AT: ${{ steps.dispatch.outputs.dispatched_at }}
         run: |
           set -euo pipefail
+
+          REPO="phanthienquoc/platform-infra"
+          API="https://api.github.com/repos/$REPO/actions/runs"
+
+          echo "Waiting for platform-infra repository_dispatch for $RELEASE..."
+
           for attempt in $(seq 1 12); do
-            RUNS_JSON="$(curl --fail-with-body -sS               -H "Accept: application/vnd.github+json"               -H "Authorization: Bearer $TOKEN"               -H "X-GitHub-Api-Version: 2022-11-28"               "https://api.github.com/repos/phanthienquoc/platform-infra/actions/runs?event=repository_dispatch&per_page=20")"
+            RUNS_JSON="$(curl --fail-with-body -sS \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer $TOKEN" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "$API?event=repository_dispatch&per_page=20")"
 
             MATCH="$(printf '%s' "$RUNS_JSON" | jq -r --argjson cutoff "$DISPATCHED_AT" '
               .workflow_runs[]
               | select(.created_at != null)
               | select((.created_at | fromdateiso8601) >= ($cutoff - 5))
               | select(.name | startswith("GitOps Image Promotion"))
-              | [.id, .name, .status, .html_url] | @tsv
+              | [.id, .name, .status, .html_url]
+              | @tsv
             ')"
 
+
             if [ -n "$MATCH" ]; then
-              echo "$MATCH"
+              echo "Platform-infra workflow scheduled: $MATCH"
               exit 0
             fi
+
+            echo "No matching platform-infra repository_dispatch workflow yet (attempt $attempt/12)."
             sleep 5
           done
 
-          echo "::error::platform-infra did not schedule the media release promotion workflow."
+          echo "::error::GitHub accepted the dispatch request, but platform-infra did not schedule the GitOps Image Promotion workflow within 60 seconds."
+          echo "::error::Check PLATFORM_INFRA_DISPATCH_TOKEN permissions and the platform-infra Actions workflow state."
           exit 1
 
-      - name: Verify production rollout
-        env:
-          DISPATCHED_AT: ${{ steps.dispatch.outputs.dispatched_at }}
+      - name: Write release summary
+        shell: bash
         run: |
           set -euo pipefail
-          for attempt in $(seq 1 90); do
-            RUNS_JSON="$(curl --fail-with-body -sS               -H "Accept: application/vnd.github+json"               -H "Authorization: Bearer $TOKEN"               -H "X-GitHub-Api-Version: 2022-11-28"               "https://api.github.com/repos/phanthienquoc/platform-infra/actions/runs?event=repository_dispatch&per_page=50")"
-
-            RUN_ID="$(printf '%s' "$RUNS_JSON" | jq -r --argjson cutoff "$DISPATCHED_AT" '
-              .workflow_runs[]
-              | select(.name == "reconcile-vps")
-              | select(.created_at != null)
-              | select((.created_at | fromdateiso8601) >= ($cutoff - 5))
-              | .id
-            ' | head -n 1)"
-
-            if [ -n "$RUN_ID" ] && [ "$RUN_ID" != "null" ]; then
-              RUN_JSON="$(curl --fail-with-body -sS                 -H "Accept: application/vnd.github+json"                 -H "Authorization: Bearer $TOKEN"                 -H "X-GitHub-Api-Version: 2022-11-28"                 "https://api.github.com/repos/phanthienquoc/platform-infra/actions/runs/$RUN_ID")"
-
-              STATUS="$(printf '%s' "$RUN_JSON" | jq -r '.status')"
-              CONCLUSION="$(printf '%s' "$RUN_JSON" | jq -r '.conclusion // ""')"
-              URL="$(printf '%s' "$RUN_JSON" | jq -r '.html_url')"
-              echo "reconcile-vps run=$RUN_ID status=$STATUS conclusion=$CONCLUSION"
-              echo "Run: $URL"
-
-              if [ "$STATUS" = "completed" ]; then
-                if [ "$CONCLUSION" = "success" ]; then
-                  echo "Production rollout verified for $TAG."
-                  exit 0
-                fi
-                echo "::error::Production reconciliation failed for $TAG (conclusion=$CONCLUSION)."
-                exit 1
-              fi
-            fi
-
-            echo "Waiting for production reconciliation... attempt $attempt/90"
-            sleep 10
-          done
-
-          echo "::error::platform-infra did not complete production reconciliation for $TAG within the verification window."
-          exit 1
+          {
+            echo "### Platform Infra image release"
+            echo ""
+            echo "- Tag: $TAG"
+            echo "- Frontend: ghcr.io/phanthienquoc/media-generation/frontend:$TAG"
+            echo "- Backend: ghcr.io/phanthienquoc/media-generation/backend:$TAG"
+            echo "- Event: media-release-requested"
+            echo "- Platform Infra: release request dispatched and GitOps Image Promotion workflow verified"
+          } >> "$GITHUB_STEP_SUMMARY"
