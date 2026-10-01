@@ -154,7 +154,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          docker build --pull -t "media-backend:$IMAGE_TAG" -f apps/service/Dockerfile .
+          docker build --pull -t "media-backend:$IMAGE_TAG" -f apps/backend/Dockerfile apps/backend
 
       - name: Verify backend architecture
         shell: bash
@@ -200,7 +200,7 @@ jobs:
       - name: Download exact release artifacts
         uses: actions/download-artifact@v4
         with:
-          pattern: tce-*-image
+          pattern: media-*-image
           merge-multiple: true
           path: /tmp/images
 
@@ -318,8 +318,8 @@ jobs:
             echo "### Platform Infra image release"
             echo ""
             echo "- Tag: $TAG"
-            echo "- Web: ghcr.io/phanthienquoc/media-generation/web:$TAG"
-            echo "- Service: ghcr.io/phanthienquoc/media-generation/service:$TAG"
+            echo "- Frontend: ghcr.io/phanthienquoc/media-generation/frontend:$TAG"
+            echo "- Backend: ghcr.io/phanthienquoc/media-generation/backend:$TAG"
             echo "- Event: media-release-requested"
             echo "- Platform Infra: release request dispatched and GitOps Image Promotion workflow verified"
           } >> "$GITHUB_STEP_SUMMARY"
