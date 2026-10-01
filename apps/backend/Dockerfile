@@ -1,7 +1,10 @@
-FROM node:22-alpine AS build
+FROM --platform=$BUILDPLATFORM node:22-alpine AS build
+ARG TARGETPLATFORM
+ARG BUILDPLATFORM
+RUN echo "Building media backend for ${TARGETPLATFORM} on ${BUILDPLATFORM}"
 WORKDIR /app
 COPY package*.json ./
-RUN npm install
+RUN npm install --no-audit --no-fund
 COPY . .
 RUN npm run build
 RUN test -f /app/dist/main.js
@@ -10,7 +13,7 @@ FROM node:22-alpine
 WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=build /app/package*.json ./
-RUN npm install --omit=dev
+RUN npm install --omit=dev --no-audit --no-fund
 COPY --from=build /app/dist ./dist
 USER node
 EXPOSE 3000
