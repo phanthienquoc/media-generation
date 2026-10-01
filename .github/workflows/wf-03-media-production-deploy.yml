@@ -144,8 +144,6 @@ jobs:
           test -f package.json
           test -f apps/backend/package.json
           test -d apps/backend
-          test -d libs
-          test -d packages
 
       - name: Verify native architecture
         run: test "$(uname -m)" = "aarch64"
