@@ -1,27 +1,43 @@
 # media-generation
 
-<!-- Production verification trigger: deployment wiring validated end-to-end. -->
-
 NestJS async video generation service for FE Algorithm Daily using Gemini/Veo 3.1 and private Supabase Storage.
 
-Endpoints: POST /v1/video-jobs, GET /v1/video-jobs/:id, POST /v1/video-jobs/:id/retry, GET /v1/health, GET /v1/ready.
+## Workspace
 
-Runtime secrets stay outside source control. Apply the Supabase migration from the platform project before enabling the worker.
+The repository follows the TCE Nx application pattern:
 
-API contract: failed jobs can be retried; completed assets are returned through time-limited signed storage URLs.
+- `apps/frontend` — Next.js frontend application
+- `apps/backend` — NestJS API/worker boundary
+- root `package.json` — workspace scripts and shared toolchain
+- `nx.json` — project target defaults
+
+The frontend is provider-neutral and talks to the NestJS API under `/v1`. Gemini/Veo and Supabase service-role credentials remain backend-only.
+
+## API
+
+- `POST /v1/video-jobs`
+- `GET /v1/video-jobs/:id`
+- `POST /v1/video-jobs/:id/retry`
+- `GET /v1/health`
+- `GET /v1/ready`
+
+## Supabase
+
+Use the existing project `gtqovpusfyyvxpeezxlo`. Do not create a second media project.
+
+Existing media tables include:
+
+- `video_generation_jobs`
+- `video_generation_assets`
+- `media_generation_jobs`
+- `media_generation_assets`
+- `media_generation_prompts`
+- `media_generation_usage`
+
+Runtime secrets stay outside source control. Apply committed Supabase migrations before enabling workers.
 
 ## Production CI/CD
 
-The `master` image job publishes an immutable Git-SHA image to the public GHCR package and dispatches `image-published` to `platform-infra` for GitOps promotion and VPS reconciliation.
+The application repository owns FE/BE images and application runtime secrets. `platform-infra` owns Kubernetes workload/infrastructure only.
 
-Configure these GitHub Actions secrets in the `media-generation` repository's `production` environment:
-
-- `GEMINI_API_KEY`: Gemini/Veo API credential.
-- `SUPABASE_URL`: Supabase project URL.
-- `SUPABASE_SERVICE_ROLE_KEY`: Supabase service-role credential.
-
-Configure this GitHub Actions secret in the `media-generation` repository:
-
-- `PLATFORM_INFRA_DISPATCH_TOKEN`: a least-privilege GitHub token authorized to dispatch repository events to `phanthienquoc/platform-infra`.
-
-Production runtime credentials are owned by this repository and supplied to the `production` GitHub environment. The `runtime-secret` job syncs them to `media-prod/media-generation-secrets` on the existing self-hosted K3s runner before GitOps promotion. `platform-infra` owns only the Kubernetes workload/infrastructure and never reads these application credentials.
+Production builds publish immutable FE and BE images and dispatch `media-release-requested` to `platform-infra` for paired GitOps promotion.

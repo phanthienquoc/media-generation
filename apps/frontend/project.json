@@ -1,0 +1,12 @@
+{
+  "name": "frontend",
+  "sourceRoot": "apps/frontend",
+  "projectType": "application",
+  "targets": {
+    "build": { "executor": "nx:run-commands", "options": { "command": "next build apps/frontend" } },
+    "serve": { "executor": "nx:run-commands", "options": { "command": "next dev apps/frontend" } },
+    "lint": {},
+    "lint:fix": {},
+    "typecheck": { "executor": "nx:run-commands", "options": { "command": "tsc -p apps/frontend/tsconfig.json" } }
+  }
+}

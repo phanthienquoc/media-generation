@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Activity, Film, HardDrive, Settings2, Plus, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { api } from "./lib-api";
+import { api } from "@lib/api";
 
 type Job = {
   id: string;
