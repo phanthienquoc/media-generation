@@ -226,7 +226,7 @@ jobs:
     timeout-minutes: 20
     env:
       TAG: ${{ needs.detect.outputs.image_tag }}
-      TOKEN: ${{ secrets.PLATFORM_INFRA_TOKEN }}
+      TOKEN: ${{ secrets.PLATFORM_INFRA_DISPATCH_TOKEN }}
     steps:
       - name: Checkout release commit
         uses: actions/checkout@v4
