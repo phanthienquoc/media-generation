@@ -21,6 +21,7 @@ jobs:
     name: Notify Telegram — release started
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
+    continue-on-error: true
     env:
       TELEGRAM_BOT_TOKEN: ${{ vars.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHAT_ID: ${{ vars.TELEGRAM_CHAT_ID }}
@@ -74,17 +75,6 @@ jobs:
       - run: npm test
       - run: npm run build
 
-  verify-backend:
-    needs: verify
-    runs-on: ubuntu-latest
-    steps:
-      - run: true
-
-  verify-frontend:
-    needs: verify
-    runs-on: ubuntu-latest
-    steps:
-      - run: true
 
   runtime-secret:
     needs: [verify]
