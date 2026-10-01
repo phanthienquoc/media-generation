@@ -7,8 +7,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useMediaStore } from "@stores/media.store";
 
 export default function Page() {
-  const [view, setView] = useState<"overview" | "jobs" | "assets" | "system">("overview");
-  const { jobs, assets, error, loading, load, clearError } = useMediaStore();
+  const [view, setView] = useState<"overview" | "jobs" | "assets" | "system">("overview");\n  const [showNewVideo, setShowNewVideo] = useState(false);\n  const [prompt, setPrompt] = useState("");\n  const [model, setModel] = useState("veo-3.1-fast-generate-preview");\n  const [aspectRatio, setAspectRatio] = useState("16:9");\n  const [resolution, setResolution] = useState("720p");
+  const { jobs, assets, error, loading, load, createJob, clearError } = useMediaStore();
 
   useEffect(() => {
     void load(view);
@@ -16,7 +16,7 @@ export default function Page() {
     return () => clearInterval(timer);
   }, [load, view]);
 
-  const reload = () => {
+  const submitNewVideo = async (event: React.FormEvent<HTMLFormElement>) => {\n    event.preventDefault();\n    if (!prompt.trim()) return;\n    const job = await createJob({ prompt: prompt.trim(), model, aspectRatio, resolution });\n    if (!job) return;\n    setPrompt("");\n    setShowNewVideo(false);\n    setView("jobs");\n  };\n\n  const reload = () => {
     clearError();
     void load(view);
   };
@@ -54,7 +54,7 @@ export default function Page() {
             <h1 className="text-3xl font-semibold tracking-tight">Media generation</h1>
             <p className="text-sm text-muted-foreground">Generate, inspect, and retry video jobs.</p>
           </div>
-          <Button><Plus size={15} /> New video</Button>
+          <Button onClick={() => setShowNewVideo(true)} disabled={loading}><Plus size={15} /> New video</Button>
         </div>
 
         {view === "overview" && (
@@ -107,7 +107,7 @@ export default function Page() {
         )}
       </main>
 
-      <nav className="fixed bottom-0 flex w-full border-t bg-background">
+      {showNewVideo && (\n        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">\n          <form onSubmit={submitNewVideo} className="w-full max-w-lg space-y-4 rounded-xl border bg-background p-5 shadow-xl">\n            <div>\n              <h2 className="text-lg font-semibold">New video</h2>\n              <p className="text-sm text-muted-foreground">Create a queued video generation job.</p>\n            </div>\n            <label className="grid gap-2 text-sm">\n              <span className="font-medium">Prompt</span>\n              <textarea value={prompt} onChange={(event) => setPrompt(event.target.value)} required autoFocus rows={5} className="rounded-md border bg-background px-3 py-2 outline-none focus:ring-2" placeholder="Describe the video you want to generate..." />\n            </label>\n            <div className="grid grid-cols-2 gap-3">\n              <label className="grid gap-2 text-sm">\n                <span className="font-medium">Model</span>\n                <select value={model} onChange={(event) => setModel(event.target.value)} className="rounded-md border bg-background px-3 py-2">\n                  <option value="veo-3.1-fast-generate-preview">Veo 3.1 Fast</option>\n                </select>\n              </label>\n              <label className="grid gap-2 text-sm">\n                <span className="font-medium">Aspect ratio</span>\n                <select value={aspectRatio} onChange={(event) => setAspectRatio(event.target.value)} className="rounded-md border bg-background px-3 py-2">\n                  <option value="16:9">16:9</option>\n                  <option value="9:16">9:16</option>\n                  <option value="1:1">1:1</option>\n                </select>\n              </label>\n            </div>\n            <label className="grid gap-2 text-sm">\n              <span className="font-medium">Resolution</span>\n              <select value={resolution} onChange={(event) => setResolution(event.target.value)} className="rounded-md border bg-background px-3 py-2">\n                <option value="720p">720p</option>\n                <option value="1080p">1080p</option>\n              </select>\n            </label>\n            <div className="flex justify-end gap-2">\n              <Button type="button" variant="outline" onClick={() => setShowNewVideo(false)}>Cancel</Button>\n              <Button type="submit" disabled={loading || !prompt.trim()}>{loading ? "Creating..." : "Create video"}</Button>\n            </div>\n          </form>\n        </div>\n      )}\n\n      <nav className="fixed bottom-0 flex w-full border-t bg-background">
         {nav.map(([id, label, Icon]) => (
           <button
             key={id}
