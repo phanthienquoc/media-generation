@@ -1,6 +1,6 @@
 import { api } from "@lib/api";
 
-export type VideoJob = {
+export type CreateVideoJobInput = {\n  prompt: string;\n  model?: string;\n  aspectRatio?: string;\n  resolution?: string;\n  attempts?: number;\n};\n\nexport type VideoJob = {
   id: string;
   prompt: string;
   model: string;
@@ -18,7 +18,7 @@ export type MediaAsset = {
 };
 
 export const mediaService = {
-  listJobs(limit = 50) {
+  createJob(input: CreateVideoJobInput) {\n    return api<VideoJob>("/video-jobs", {\n      method: "POST",\n      headers: { "Content-Type": "application/json" },\n      body: JSON.stringify(input),\n    });\n  },\n\n  listJobs(limit = 50) {
     return api<VideoJob[]>(`/video-jobs?limit=${limit}`);
   },
 
