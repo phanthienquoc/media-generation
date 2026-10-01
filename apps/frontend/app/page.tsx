@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";\nimport type { FormEvent } from "react";
 import { Activity, Film, HardDrive, Settings2, Plus, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -21,7 +21,7 @@ export default function Page() {
     return () => clearInterval(timer);
   }, [load, view]);
 
-  const submitNewVideo = async (event: React.FormEvent<HTMLFormElement>) => {
+  const submitNewVideo = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!prompt.trim()) return;
     const job = await createJob({ prompt: prompt.trim(), model, aspectRatio, resolution });
@@ -69,7 +69,7 @@ export default function Page() {
             <h1 className="text-3xl font-semibold tracking-tight">Media generation</h1>
             <p className="text-sm text-muted-foreground">Generate, inspect, and retry video jobs.</p>
           </div>
-          <Button onClick={() => setShowNewVideo(true)} disabled={loading}><Plus size={15} /> New video</Button>
+          <Button onClick={() => setShowNewVideo(true)}><Plus size={15} /> New video</Button>
         </div>
 
         {view === "overview" && (
