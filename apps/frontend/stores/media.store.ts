@@ -3,6 +3,8 @@
 import { create } from "zustand";
 import { mediaService, type MediaAsset, type VideoJob } from "@services/media.service";
 
+type MediaView = "overview" | "jobs" | "assets" | "system";
+
 type MediaState = {
   jobs: VideoJob[];
   assets: MediaAsset[];
@@ -10,7 +12,7 @@ type MediaState = {
   error: string | null;
   loadJobs: () => Promise<void>;
   loadAssets: () => Promise<void>;
-  load: (view: "overview" | "jobs" | "assets") => Promise<void>;
+  load: (view: MediaView) => Promise<void>;
   retryJob: (id: string) => Promise<void>;
   clearError: () => void;
 };
