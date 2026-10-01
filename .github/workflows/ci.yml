@@ -177,14 +177,27 @@ jobs:
           pattern: media-*-image
           merge-multiple: true
           path: /tmp/images
+      - name: Normalize downloaded image artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/release-images
+          for image in media-frontend media-backend; do
+            TAR="$(find /tmp/images -type f -name "$image.tar" -print -quit)"
+            SHA="$(find /tmp/images -type f -name "$image.sha256" -print -quit)"
+            test -n "$TAR"
+            test -n "$SHA"
+            cp "$TAR" "/tmp/release-images/$image.tar"
+            cp "$SHA" "/tmp/release-images/$image.sha256"
+          done
       - name: Load and validate exact release images
         run: |
           set -euo pipefail
           for image in media-frontend media-backend; do
-            test -s "/tmp/images/$image.tar"
-            test -s "/tmp/images/$image.sha256"
-            sha256sum -c "/tmp/images/$image.sha256"
-            docker load -i "/tmp/images/$image.tar"
+            test -s "/tmp/release-images/$image.tar"
+            test -s "/tmp/release-images/$image.sha256"
+            (cd /tmp/release-images && sha256sum -c "$image.sha256")
+            docker load -i "/tmp/release-images/$image.tar"
             docker image inspect "$image:$TAG" >/dev/null
             test "$(docker image inspect "$image:$TAG" --format '{{.Architecture}}')" = "arm64"
           done
