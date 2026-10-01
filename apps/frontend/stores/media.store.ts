@@ -17,6 +17,9 @@ type MediaState = {
   clearError: () => void;
 };
 
+const getErrorMessage = (error: unknown, fallback: string) =>
+  error instanceof Error ? error.message : fallback;
+
 export const useMediaStore = create<MediaState>((set) => ({
   jobs: [],
   assets: [],
@@ -29,7 +32,7 @@ export const useMediaStore = create<MediaState>((set) => ({
       const jobs = await mediaService.listJobs();
       set({ jobs, loading: false });
     } catch (error) {
-      set({ loading: false, error: error instanceof Error ? error.message : "Failed to load jobs" });
+      set({ loading: false, error: getErrorMessage(error, "Failed to load jobs") });
     }
   },
 
@@ -39,13 +42,24 @@ export const useMediaStore = create<MediaState>((set) => ({
       const assets = await mediaService.listAssets();
       set({ assets, loading: false });
     } catch (error) {
-      set({ loading: false, error: error instanceof Error ? error.message : "Failed to load assets" });
+      set({ loading: false, error: getErrorMessage(error, "Failed to load assets") });
     }
   },
 
   load: async (view) => {
-    if (view === "assets") return useMediaStore.getState().loadAssets();
-    return useMediaStore.getState().loadJobs();
+    set({ loading: true, error: null });
+    try {
+      if (view === "assets") {
+        const assets = await mediaService.listAssets();
+        set({ assets, loading: false });
+        return;
+      }
+
+      const jobs = await mediaService.listJobs();
+      set({ jobs, loading: false });
+    } catch (error) {
+      set({ loading: false, error: getErrorMessage(error, "Failed to load media") });
+    }
   },
 
   retryJob: async (id) => {
@@ -57,7 +71,7 @@ export const useMediaStore = create<MediaState>((set) => ({
         loading: false,
       }));
     } catch (error) {
-      set({ loading: false, error: error instanceof Error ? error.message : "Failed to retry job" });
+      set({ loading: false, error: getErrorMessage(error, "Failed to retry job") });
     }
   },
 
