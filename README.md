@@ -41,3 +41,7 @@ Runtime secrets stay outside source control. Apply committed Supabase migrations
 The application repository owns FE/BE images and application runtime secrets. `platform-infra` owns Kubernetes workload/infrastructure only.
 
 Production builds publish immutable FE and BE images and dispatch `media-release-requested` to `platform-infra` for paired GitOps promotion.
+
+## Production release
+
+The media release follows the TCE-aligned WF-03 path: immutable FE/BE images are published first, then platform-infra promotes the paired images and triggers VPS reconciliation.
