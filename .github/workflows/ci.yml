@@ -42,7 +42,6 @@ jobs:
 
   detect:
     name: Resolve production image tag
-    needs: notify-telegram-start
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     outputs:
@@ -61,29 +60,35 @@ jobs:
           echo "image_tag=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
           echo "Image tag: $IMAGE_TAG"
 
-  verify-backend:
+  verify:
+    name: Verify Nx workspace
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
-      - run: npm install --prefix apps/backend
-      - run: npm test --prefix apps/backend
-      - run: npm run build --prefix apps/backend
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx nx show projects
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  verify-backend:
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - run: true
 
   verify-frontend:
+    needs: verify
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - run: npm install --prefix apps/frontend
-      - run: npm run build --prefix apps/frontend
+      - run: true
 
   runtime-secret:
-    needs: [verify-backend, verify-frontend]
+    needs: [verify]
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     runs-on: [self-hosted, linux, arm64, media-generation, k3s, vps]
     environment: production
@@ -104,7 +109,7 @@ jobs:
 
   build-frontend:
     name: Build frontend (native ARM64)
-    needs: [detect, verify-frontend]
+    needs: [detect, verify]
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 30
     env:
@@ -134,7 +139,7 @@ jobs:
 
   build-backend:
     name: Build backend (native ARM64)
-    needs: [detect, verify-backend]
+    needs: [detect, verify]
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 30
     env:
