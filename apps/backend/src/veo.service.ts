@@ -4,6 +4,11 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+export type VeoGenerationResult = {
+  bytes: Buffer;
+  operationName: string;
+};
+
 @Injectable()
 export class VeoService {
   private ai?: GoogleGenAI;
@@ -17,25 +22,39 @@ export class VeoService {
     return this.ai;
   }
 
-  async generate(job: any) {
+  async generate(job: {
+    id: string;
+    prompt: string;
+    model: string;
+    aspect_ratio: string;
+    resolution: string;
+  }): Promise<VeoGenerationResult> {
     const ai = this.client();
     let operation: any = await ai.models.generateVideos({
       model: job.model,
       prompt: job.prompt,
-      config: { aspectRatio: job.aspect_ratio, resolution: job.resolution }
+      config: {
+        aspectRatio: job.aspect_ratio,
+        resolution: job.resolution
+      }
     });
 
-    const dir = await mkdtemp(join(tmpdir(), 'veo-'));
+    const dir = await mkdtemp(join(tmpdir(), `veo-${job.id}-`));
     const file = join(dir, 'video.mp4');
 
     try {
       while (!operation.done) {
-        await new Promise((resolve) => setTimeout(resolve, Number(process.env.VEO_POLL_MS ?? 10000)));
+        await new Promise((resolve) =>
+          setTimeout(resolve, Number(process.env.VEO_POLL_MS ?? 10000))
+        );
         operation = await ai.operations.getVideosOperation({ operation });
       }
+
       const video = operation.response?.generatedVideos?.[0]?.video;
       if (!video) throw new Error('Veo completed without generated video');
+
       await ai.files.download({ file: video, downloadPath: file });
+
       return {
         bytes: await readFile(file),
         operationName: String(operation.name ?? operation.operation?.name ?? '')
