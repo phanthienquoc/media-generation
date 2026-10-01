@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";\nimport type { FormEvent } from "react";
+import { useEffect, useState } from "react";
+import type { FormEvent } from "react";
 import { Activity, Film, HardDrive, Settings2, Plus, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
