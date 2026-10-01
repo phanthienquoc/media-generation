@@ -35,5 +35,5 @@ begin
 end;
 $$;
 
-revoke all on function public.claim_video_generation_job() from public;
+revoke all on function public.claim_video_generation_job() from anon, authenticated, public;
 grant execute on function public.claim_video_generation_job() to service_role;
