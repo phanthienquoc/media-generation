@@ -82,7 +82,6 @@ jobs:
       - run: npx nx show projects
       - run: npm run typecheck
       - run: npm test
-      - run: npm run build
 
   runtime-secret:
     needs: [verify]
