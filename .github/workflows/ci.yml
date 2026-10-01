@@ -196,7 +196,9 @@ jobs:
           for image in media-frontend media-backend; do
             test -s "/tmp/release-images/$image.tar"
             test -s "/tmp/release-images/$image.sha256"
-            (cd /tmp/release-images && sha256sum -c "$image.sha256")
+            EXPECTED_SHA="$(awk '{print $1}' "/tmp/release-images/$image.sha256")"
+            ACTUAL_SHA="$(sha256sum "/tmp/release-images/$image.tar" | awk '{print $1}')"
+            test "$EXPECTED_SHA" = "$ACTUAL_SHA"
             docker load -i "/tmp/release-images/$image.tar"
             docker image inspect "$image:$TAG" >/dev/null
             test "$(docker image inspect "$image:$TAG" --format '{{.Architecture}}')" = "arm64"
