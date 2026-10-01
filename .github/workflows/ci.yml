@@ -253,3 +253,40 @@ jobs:
           done
           echo "::error::platform-infra did not schedule the media release promotion workflow."
           exit 1
+
+      - name: Verify production rollout
+        env:
+          RELEASE: ${{ needs.detect.outputs.image_tag }}
+          DISPATCHED_AT: ${{ steps.dispatch.outputs.dispatched_at }}
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 90); do
+            RUNS_JSON="$(curl --fail-with-body -sS \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer $TOKEN" \
+              "https://api.github.com/repos/phanthienquoc/platform-infra/actions/runs?event=repository_dispatch&per_page=50")"
+            RUN_ID="$(printf '%s' "$RUNS_JSON" | jq -r --argjson cutoff "$DISPATCHED_AT" '.workflow_runs[] | select(.name == "reconcile-vps") | select(.created_at != null) | select((.created_at | fromdateiso8601) >= ($cutoff - 5)) | .id' | head -n 1)"
+            if [ -n "$RUN_ID" ] && [ "$RUN_ID" != "null" ]; then
+              RUN_JSON="$(curl --fail-with-body -sS \
+                -H "Accept: application/vnd.github+json" \
+                -H "Authorization: Bearer $TOKEN" \
+                "https://api.github.com/repos/phanthienquoc/platform-infra/actions/runs/$RUN_ID")"
+              STATUS="$(printf '%s' "$RUN_JSON" | jq -r '.status')"
+              CONCLUSION="$(printf '%s' "$RUN_JSON" | jq -r '.conclusion // ""')"
+              URL="$(printf '%s' "$RUN_JSON" | jq -r '.html_url')"
+              echo "reconcile-vps run=$RUN_ID status=$STATUS conclusion=$CONCLUSION"
+              echo "Run: $URL"
+              if [ "$STATUS" = "completed" ]; then
+                if [ "$CONCLUSION" = "success" ]; then
+                  echo "Production rollout verified for $RELEASE."
+                  exit 0
+                fi
+                echo "::error::Production reconciliation failed for $RELEASE (conclusion=$CONCLUSION)."
+                exit 1
+              fi
+            fi
+            echo "Waiting for production reconciliation... attempt $attempt/90"
+            sleep 10
+          done
+          echo "::error::platform-infra did not complete production reconciliation for $RELEASE within the verification window."
+          exit 1
