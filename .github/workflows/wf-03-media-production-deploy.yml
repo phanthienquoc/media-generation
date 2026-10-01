@@ -18,15 +18,15 @@ jobs:
     name: Notify Telegram — release started
     runs-on: ubuntu-latest
     env:
-      TELEGRAM_BOT_TOKEN: ${{ vars.TELEGRAM_BOT_TOKEN }}
-      TELEGRAM_CHAT_ID: ${{ vars.TELEGRAM_CHAT_ID }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
     steps:
       - name: Validate Telegram configuration
         shell: bash
         run: |
           set -euo pipefail
-          test -n "$TELEGRAM_BOT_TOKEN" || { echo "Missing GitHub variable: TELEGRAM_BOT_TOKEN"; exit 1; }
-          test -n "$TELEGRAM_CHAT_ID" || { echo "Missing GitHub variable: TELEGRAM_CHAT_ID"; exit 1; }
+          test -n "$TELEGRAM_BOT_TOKEN" || { echo "Missing GitHub secret: TELEGRAM_BOT_TOKEN"; exit 1; }
+          test -n "$TELEGRAM_CHAT_ID" || { echo "Missing GitHub secret: TELEGRAM_CHAT_ID"; exit 1; }
 
       - name: Send deployment started message
         shell: bash
