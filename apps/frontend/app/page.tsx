@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { getSession } from "@lib/auth";
 import type { FormEvent } from "react";
 import { Activity, Film, HardDrive, Settings2, Plus, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -9,6 +11,8 @@ import { useMediaStore } from "@stores/media.store";
 
 export default function Page() {
   const [view, setView] = useState<"overview" | "jobs" | "assets" | "system">("overview");
+  const [sessionReady, setSessionReady] = useState(false);
+  const router = useRouter();
   const [showNewVideo, setShowNewVideo] = useState(false);
   const [prompt, setPrompt] = useState("");
   const [model, setModel] = useState("veo-3.1-fast-generate-preview");
@@ -17,6 +21,17 @@ export default function Page() {
   const { jobs, assets, error, loading, load, createJob, clearError } = useMediaStore();
 
   useEffect(() => {
+    void getSession().then((session) => {
+      if (!session) {
+        router.replace('/login');
+        return;
+      }
+      setSessionReady(true);
+    });
+  }, [router]);
+
+  useEffect(() => {
+    if (!sessionReady) return;
     void load(view);
     const timer = setInterval(() => void load(view), 15000);
     return () => clearInterval(timer);
@@ -53,7 +68,7 @@ export default function Page() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl space-y-5 px-4 py-6">
+      <main className="mx-auto max-w-6xl space-y-5 px-4 py-6" aria-busy={!sessionReady}>
         {error && (
           <Card>
             <CardContent className="flex items-center gap-3 text-sm text-destructive">
