@@ -6,10 +6,11 @@ import { VideoJobsService } from './video-jobs.service';
 import { VeoService } from './veo.service';
 import { WorkerService } from './worker.service';
 import { AssetsService } from './assets.service';
+import { MicrofeSession } from './microfe-session';
 
 @Module({
   imports: [ConfigModule.forRoot({ isGlobal: true })],
   controllers: [AppController],
-  providers: [DbService, VideoJobsService, VeoService, WorkerService, AssetsService]
+  providers: [DbService, VideoJobsService, VeoService, WorkerService, AssetsService, MicrofeSession]
 })
 export class AppModule {}
