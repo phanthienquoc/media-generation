@@ -1,9 +1,10 @@
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import type { Express } from 'express';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<Express>(AppModule);
   app.setGlobalPrefix('v1');
 
   const allowedOrigins = (process.env.MICROFE_ORIGINS ?? 'https://media.mrcute.space')
@@ -18,7 +19,7 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'X-CSRF-Token'],
   });
 
-  app.set('trust proxy', 1);
+  app.getHttpAdapter().getInstance().set('trust proxy', 1);
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
 
   await app.listen(Number(process.env.PORT ?? 3000), '0.0.0.0');
