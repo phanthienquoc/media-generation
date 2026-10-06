@@ -1,10 +1,9 @@
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
-import type { Express } from 'express';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create<Express>(AppModule);
+  const app = await NestFactory.create(AppModule);
   app.setGlobalPrefix('v1');
 
   const allowedOrigins = (process.env.MICROFE_ORIGINS ?? 'https://media.mrcute.space')
