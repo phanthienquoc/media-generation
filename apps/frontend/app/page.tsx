@@ -23,7 +23,7 @@ export default function Page() {
   useEffect(() => {
     void getSession().then((session) => {
       if (!session) {
-        router.replace('/login');
+        router.replace('https://auth.mrcute.space/login?returnTo=' + encodeURIComponent(window.location.href));
         return;
       }
       setSessionReady(true);
