@@ -34,7 +34,7 @@ Existing media tables include:
 - `media_generation_prompts`
 - `media_generation_usage`
 
-Runtime secrets stay outside source control. Apply committed Supabase migrations before enabling workers.
+Runtime secrets stay outside source control. Apply committed Supabase migrations before enabling workers. See [`docs/production-credentials.md`](docs/production-credentials.md) for the production credential checklist and ownership.
 
 ## Production CI/CD
 
