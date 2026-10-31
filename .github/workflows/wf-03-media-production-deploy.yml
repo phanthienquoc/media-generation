@@ -373,12 +373,12 @@ jobs:
               -H "X-GitHub-Api-Version: 2022-11-28" \
               "$API?event=repository_dispatch&per_page=20")"
 
-            MATCH="$(printf '%s' "$RUNS_JSON" | jq -r --argjson cutoff "$DISPATCHED_AT" '
+            MATCH="$(printf '%s' "$RUNS_JSON" | jq -r --argjson cutoff "$DISPATCHED_AT" --arg release "$RELEASE" '
               .workflow_runs[]
               | select(.created_at != null)
               | select((.created_at | fromdateiso8601) >= ($cutoff - 5))
-              | select(.name | startswith("GitOps Image Promotion"))
-              | [.id, .name, .status, .html_url]
+              | select(.display_title == ("GitOps Image Promotion — media-generation / " + $release))
+              | [.id, .display_title, .status, .html_url]
               | @tsv
             ')"
 
