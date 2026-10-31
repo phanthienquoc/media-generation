@@ -14,7 +14,9 @@ const checks = [
   ["invalid semver is rejected before image builds", workflow.includes("package.json version must be stable semver (x.y.z)")],
   ["frontend and backend artifacts are paired", workflow.includes("name: media-frontend-image") && workflow.includes("name: media-backend-image") && workflow.includes("pattern: media-*-image")],
   ["both images are published to their canonical GHCR packages", workflow.includes('FRONTEND_IMAGE="ghcr.io/phanthienquoc/media-generation/frontend:$TAG"') && workflow.includes('BACKEND_IMAGE="ghcr.io/phanthienquoc/media-generation/backend:$TAG"') && workflow.includes('docker push "$FRONTEND_IMAGE"') && workflow.includes('docker push "$BACKEND_IMAGE"')],
-  ["dispatch uses the central Media release contract", workflow.includes("media-release-requested") && workflow.includes('app\\":\\"media-generation') && workflow.includes('release\\":\\"$TAG')],
+  ["dispatch uses the paired Media digest event", workflow.includes("media-images-published") && workflow.includes('frontend_digest') && workflow.includes('backend_digest') && workflow.includes('event_type:"media-images-published"')],
+  ["published Media images are registry-verified for ARM64 before dispatch", workflow.indexOf("Verify immutable registry digests and ARM64 manifests") < workflow.indexOf("Notify platform-infra") && workflow.includes("docker buildx imagetools inspect") && workflow.includes("Platform: linux/arm64")],
+  ["Media dispatch payload validates source commit, release and both digests", workflow.includes('[[ "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ ]]') && workflow.includes('jq -e') && workflow.includes('client_payload.frontend_digest') && workflow.includes('client_payload.backend_digest')],
   ["release waits for Platform Infra promotion workflow scheduling", workflow.includes("Verify platform-infra release workflow") && workflow.includes('event=repository_dispatch') && workflow.includes('GitOps Image Promotion')],
 ];
 
