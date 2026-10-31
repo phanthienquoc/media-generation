@@ -17,7 +17,7 @@ const checks = [
   ["dispatch uses the paired Media digest event", workflow.includes("media-images-published") && workflow.includes('frontend_digest') && workflow.includes('backend_digest') && workflow.includes('event_type:"media-images-published"')],
   ["published Media images are registry-verified for ARM64 before dispatch", workflow.indexOf("Verify immutable registry digests and ARM64 manifests") < workflow.indexOf("Notify platform-infra") && workflow.includes("docker buildx imagetools inspect") && workflow.includes("Platform: linux/arm64")],
   ["Media dispatch payload validates source commit, release and both digests", workflow.includes('[[ "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ ]]') && workflow.includes('jq -e') && workflow.includes('client_payload.frontend_digest') && workflow.includes('client_payload.backend_digest')],
-  ["release waits for Platform Infra promotion workflow scheduling", workflow.includes("Verify platform-infra release workflow") && workflow.includes('event=repository_dispatch') && workflow.includes('GitOps Image Promotion')],
+  ["release verification correlates to the exact Media GitOps run", workflow.includes("Verify platform-infra release workflow") && workflow.includes('event=repository_dispatch') && workflow.includes('--arg release "$RELEASE"') && workflow.includes('display_title == ("GitOps Image Promotion — media-generation / " + $release)') && !workflow.includes('select(.name | startswith("GitOps Image Promotion"))')],
 ];
 
 for (const [label, passed] of checks) {
