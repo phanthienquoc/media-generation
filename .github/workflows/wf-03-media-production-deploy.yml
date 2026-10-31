@@ -10,6 +10,7 @@ on:
       - '.github/**'
       - 'docs/**'
       - '**/*.md'
+      - 'scripts/validate-media-release-contract.mjs'
   workflow_dispatch:
 
 permissions:
