@@ -27,6 +27,9 @@ jobs:
         with:
           node-version: 24
 
+      - name: Validate production release contract
+        run: node scripts/validate-media-release-contract.mjs
+
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
