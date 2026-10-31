@@ -75,10 +75,18 @@ jobs:
         run: |
           set -euo pipefail
           VERSION="$(node -p "require('./package.json').version")"
-          SHA="${GITHUB_SHA::7}"
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::package.json version must be stable semver (x.y.z); got: $VERSION"
+            exit 1
+          fi
+
+          SHA="$GITHUB_SHA"
+          [[ "$SHA" =~ ^[0-9a-f]{40}$ ]] || {
+            echo "::error::Expected full immutable 40-character Git SHA"
+            exit 1
+          }
           IMAGE_TAG="prod-v${VERSION}-${SHA}"
 
-          test -n "$VERSION"
           test "$IMAGE_TAG" = "prod-v${VERSION}-${SHA}"
 
           echo "image_tag=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
