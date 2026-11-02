@@ -321,8 +321,25 @@ jobs:
             echo "::error::PLATFORM_INFRA_DISPATCH_TOKEN is required for production GitOps promotion."
             exit 1
           }
-          [[ "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ ]]
-          [[ "$TAG" =~ ^prod-v[0-9]+\.[0-9]+\.[0-9]+-${GITHUB_SHA}$ ]]
+          SOURCE_RUN_ID="$GITHUB_RUN_ID"
+          SOURCE_WORKFLOW_PATH=".github/workflows/wf-03-media-production-deploy.yml"
+          SOURCE_EVENT="$GITHUB_EVENT_NAME"
+          SOURCE_HEAD_SHA="$GITHUB_SHA"
+
+          [[ "$SOURCE_RUN_ID" =~ ^[0-9]+$ ]] || {
+            echo "::error::Media source Actions run ID is missing or invalid."
+            exit 1
+          }
+          [[ "$SOURCE_WORKFLOW_PATH" == ".github/workflows/wf-03-media-production-deploy.yml" ]]
+          [[ "$SOURCE_EVENT" == "push" || "$SOURCE_EVENT" == "workflow_dispatch" ]] || {
+            echo "::error::Media release handoff must originate from a master push or manual release."
+            exit 1
+          }
+          [[ "$SOURCE_HEAD_SHA" =~ ^[0-9a-f]{40}$ && "$SOURCE_HEAD_SHA" == "$GITHUB_SHA" ]] || {
+            echo "::error::Media publisher source SHA is invalid."
+            exit 1
+          }
+          [[ "$TAG" =~ ^prod-v[0-9]+[.][0-9]+[.][0-9]+-${SOURCE_HEAD_SHA}$ ]]
           [[ "$FRONTEND_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
           [[ "$BACKEND_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
 
@@ -332,13 +349,21 @@ jobs:
             --arg release "$TAG" \
             --arg frontend_digest "$FRONTEND_DIGEST" \
             --arg backend_digest "$BACKEND_DIGEST" \
-            '{event_type:"media-images-published",client_payload:{app:$app,commit:$commit,release:$release,frontend_digest:$frontend_digest,backend_digest:$backend_digest}}')"
+            --arg source_run_id "$SOURCE_RUN_ID" \
+            --arg source_workflow_path "$SOURCE_WORKFLOW_PATH" \
+            --arg source_event "$SOURCE_EVENT" \
+            --arg source_head_sha "$SOURCE_HEAD_SHA" \
+            '{event_type:"media-images-published",client_payload:{app:$app,commit:$commit,release:$release,frontend_digest:$frontend_digest,backend_digest:$backend_digest,source_run_id:$source_run_id,source_workflow_path:$source_workflow_path,source_event:$source_event,source_head_sha:$source_head_sha}}')"
           jq -e \
             --arg commit "$GITHUB_SHA" \
             --arg release "$TAG" \
             --arg frontend_digest "$FRONTEND_DIGEST" \
             --arg backend_digest "$BACKEND_DIGEST" \
-            '.event_type == "media-images-published" and .client_payload.app == "media-generation" and .client_payload.commit == $commit and .client_payload.release == $release and .client_payload.frontend_digest == $frontend_digest and .client_payload.backend_digest == $backend_digest' \
+            --arg source_run_id "$SOURCE_RUN_ID" \
+            --arg source_workflow_path "$SOURCE_WORKFLOW_PATH" \
+            --arg source_event "$SOURCE_EVENT" \
+            --arg source_head_sha "$SOURCE_HEAD_SHA" \
+            '.event_type == "media-images-published" and .client_payload.app == "media-generation" and .client_payload.commit == $commit and .client_payload.release == $release and .client_payload.frontend_digest == $frontend_digest and .client_payload.backend_digest == $backend_digest and .client_payload.source_run_id == $source_run_id and .client_payload.source_workflow_path == $source_workflow_path and .client_payload.source_event == $source_event and .client_payload.source_head_sha == $source_head_sha' \
             <<< "$payload" >/dev/null
 
           DISPATCHED_AT="$(date -u +%s)"
