@@ -339,7 +339,7 @@ jobs:
             echo "::error::Media publisher source SHA is invalid."
             exit 1
           }
-          [[ "$TAG" =~ ^prod-v[0-9]+\\.[0-9]+\\.[0-9]+-${SOURCE_HEAD_SHA}$ ]]
+          [[ "$TAG" =~ ^prod-v[0-9]+[.][0-9]+[.][0-9]+-${SOURCE_HEAD_SHA}$ ]]
           [[ "$FRONTEND_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
           [[ "$BACKEND_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
 
