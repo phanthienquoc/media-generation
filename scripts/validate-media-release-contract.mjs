@@ -21,12 +21,15 @@ const checks = [
   ["native ARM64 runner remains the image builder", workflow.includes("runs-on: ubuntu-24.04-arm") && workflow.includes('test "$(uname -m)" = "aarch64"')],
   ["CI setup-node is pinned to Node24", readFileSync(".github/workflows/ci.yml", "utf8").includes("uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0")],
   ["GHCR write permission is scoped to the publisher job", (() => {
-    const topLevel = workflow.match(/^permissions:\\n((?:  [^\\n]+\\n)+)/m)?.[1] ?? "";
-    const publisher = workflow.match(/^  publish-immutable-images:\\n([\\s\\S]*?)(?=^  [A-Za-z0-9_-]+:|$)/m)?.[1] ?? "";
-    return /^  contents: read$/m.test(topLevel) &&
-      !/packages:\\s*write/.test(topLevel) &&
-      /^    permissions:\\n      contents: read\\n      packages: write$/m.test(publisher) &&
-      (workflow.match(/packages:\\s*write/g) ?? []).length === 1;
+    const lines = workflow.split("\n");
+    const topLevelIndex = lines.indexOf("permissions:");
+    const topLevelEnd = lines.findIndex((line, index) => index > topLevelIndex && line.length > 0 && !line.startsWith(" "));
+    const topLevelPermissions = lines.slice(topLevelIndex + 1, topLevelEnd).join("\n").trim();
+    const publisherIndex = lines.indexOf("  publish-immutable-images:");
+    const publisherSection = lines.slice(publisherIndex).join("\n");
+    return topLevelPermissions === "contents: read" &&
+      publisherSection.includes("    permissions:\n      contents: read\n      packages: write") &&
+      lines.filter(line => line.trim() === "packages: write").length === 1;
   })()],
 ];
 
