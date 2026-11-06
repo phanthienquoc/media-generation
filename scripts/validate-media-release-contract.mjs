@@ -20,6 +20,17 @@ const checks = [
   ["release actions are pinned to verified Node24 SHAs", ["uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1","uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2","uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2","uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0","uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1"].every(pin => workflow.includes(pin))],
   ["native ARM64 runner remains the image builder", workflow.includes("runs-on: ubuntu-24.04-arm") && workflow.includes('test "$(uname -m)" = "aarch64"')],
   ["CI setup-node is pinned to Node24", readFileSync(".github/workflows/ci.yml", "utf8").includes("uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0")],
+  ["GHCR write permission is scoped to the publisher job", (() => {
+    const lines = workflow.split("\n");
+    const topLevelIndex = lines.indexOf("permissions:");
+    const topLevelEnd = lines.findIndex((line, index) => index > topLevelIndex && line.length > 0 && !line.startsWith(" "));
+    const topLevelPermissions = lines.slice(topLevelIndex + 1, topLevelEnd).join("\n").trim();
+    const publisherIndex = lines.indexOf("  publish-immutable-images:");
+    const publisherSection = lines.slice(publisherIndex).join("\n");
+    return topLevelPermissions === "contents: read" &&
+      publisherSection.includes("    permissions:\n      contents: read\n      packages: write") &&
+      lines.filter(line => line.trim() === "packages: write").length === 1;
+  })()],
 ];
 
 for (const [label, passed] of checks) {
