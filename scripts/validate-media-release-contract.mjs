@@ -1,10 +1,14 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 
 const pkg = JSON.parse(readFileSync("package.json", "utf8"));
 const workflow = readFileSync(".github/workflows/wf-03-media-production-deploy.yml", "utf8");
 
 const checks = [
+  ["same-source publication is serialized without cancellation", workflow.includes("group: media-production-publish-${{ github.sha }}") && workflow.includes("cancel-in-progress: false")],
+  ["GHCR guard and tests do not trigger a production release", workflow.includes("- 'scripts/verify-ghcr-tags-absent.sh'") && workflow.includes("- 'scripts/tests/**'")],
+  ["pre-publication tag guard runs before first GHCR push", workflow.indexOf("Refuse to overwrite existing immutable GHCR release tags") < workflow.indexOf("Publish exact release images") && workflow.includes('run: bash scripts/verify-ghcr-tags-absent.sh "$REPOSITORY" "$RELEASE_TAG" "$SOURCE_SHA"')],
   ["package version is stable semver", /^\d+\.\d+\.\d+$/.test(pkg.version)],
   ["production push release is master-only", /push:\s*\n\s+branches:\s*\n\s+- master/.test(workflow)],
   ["workflow and documentation-only changes are ignored", /paths-ignore:[\s\S]*?- '\.github\/\*\*'[\s\S]*?- 'docs\/\*\*'[\s\S]*?- '\*\*\/\*\.md'/.test(workflow)],
@@ -37,3 +41,6 @@ for (const [label, passed] of checks) {
   assert.ok(passed, `Media release contract violation: ${label}`);
   console.log(`PASS ${label}`);
 }
+
+assert.ok(readFileSync("scripts/verify-ghcr-tags-absent.sh", "utf8").includes("manifest unknown"), "Media GHCR guard must recognize explicit missing-manifest responses.");
+execFileSync("bash", ["scripts/tests/verify-ghcr-tags-absent.test.sh"], { stdio: "inherit" });
